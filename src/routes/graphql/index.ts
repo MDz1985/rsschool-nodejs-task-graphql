@@ -8,10 +8,10 @@ import { UUIDType } from './types/uuid.js';
 
 const memberTypeId = new GraphQLScalarType({
   name: 'MemberTypeId',
-  parseValue (value) {
-    return value
+  parseValue(value) {
+    return value;
   }
-})
+});
 
 const memberTypeInterface = new GraphQLObjectType({
   name: 'MemberType',
@@ -46,21 +46,6 @@ const postInterface = new GraphQLObjectType({
   })
 });
 
-const userInterface = new GraphQLObjectType({
-  name: 'User',
-  fields: () => ({
-    id: {
-      type: new GraphQLNonNull(GraphQLString),
-    },
-    name: {
-      type: new GraphQLNonNull(GraphQLString),
-    },
-    balance: {
-      type: new GraphQLNonNull(GraphQLFloat),
-    },
-  })
-});
-
 const profileInterface = new GraphQLObjectType({
   name: 'Profile',
   fields: () => ({
@@ -79,13 +64,121 @@ const profileInterface = new GraphQLObjectType({
     memberTypeId: {
       type: new GraphQLNonNull(GraphQLString),
     },
+    memberType: {
+      type: memberTypeInterface
+    }
+  })
+});
+
+const userInterface = new GraphQLObjectType({
+  name: 'User',
+  fields: () => ({
+    id: {
+      type: new GraphQLNonNull(GraphQLString),
+    },
+    name: {
+      type: new GraphQLNonNull(GraphQLString),
+    },
+    balance: {
+      type: new GraphQLNonNull(GraphQLFloat),
+    },
+    profile: {
+      type: profileInterface
+    },
+    posts: {
+      type: new GraphQLList(postInterface)
+    },
+    userSubscribedTo: {
+      type: new GraphQLList(userInterface)
+    },
+    subscribedToUser: {
+      type: new GraphQLList(userInterface)
+    }
   })
 });
 
 
 
+
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const { prisma } = fastify;
+  const myQueryType = new GraphQLObjectType({
+    name: 'Query',
+    fields: () => ({
+      memberTypes: {
+        type: new GraphQLList(memberTypeInterface),
+        resolve: async () => await prisma.memberType.findMany()
+      },
+      memberType: {
+        type: memberTypeInterface,
+        args: {
+          id: {
+            type: memberTypeId
+          }
+        },
+        resolve: async (_, args: { id: string }) =>
+          await prisma.memberType.findUnique({ where: { id: args.id } })
+      },
+      posts: {
+        type: new GraphQLList(postInterface),
+        resolve: async () => await prisma.post.findMany()
+      },
+      post: {
+        type: postInterface,
+        args: {
+          id: {
+            type: UUIDType
+          }
+        },
+        resolve: async (_, args: { id: string }) => await prisma.post.findUnique({ where: { id: args.id } })
+      },
+
+      users: {
+        type: new GraphQLList(userInterface),
+        resolve: async () => await prisma.user.findMany()
+      },
+      user: {
+        type: userInterface,
+        args: {
+          id: {
+            type: UUIDType
+          }
+        },
+        resolve: async (_, args: { id: string }) => {
+          const user = await prisma.user.findUnique({ where: { id: args.id } });
+          if (!user?.id) return null;
+          const profile = await prisma.profile.findUnique({ where: { userId: user.id } });
+          const posts = await prisma.post.findMany({ where: { authorId: user.id } });
+          const userSubscribedTo = await prisma.post.findMany({ where: { authorId: user.id } });
+          const subscribedToUser = null;
+
+          console.log(user, profile, posts, userSubscribedTo, subscribedToUser);
+
+
+          return user ? { ...user, profile, posts } : null;
+        }
+      },
+      profiles: {
+        type: new GraphQLList(profileInterface),
+        resolve: async () => await prisma.profile.findMany()
+      },
+      profile: {
+        type: profileInterface,
+        args: {
+          id: {
+            type: UUIDType
+          }
+        },
+        resolve: async (_, args: { id: string }) =>
+          await prisma.profile.findUnique({ where: { id: args.id } })
+      },
+    }),
+  });
+
+  const ProjectSchema = new GraphQLSchema({
+    query: myQueryType,
+  });
+
   fastify.route({
     url: '/',
     method: 'POST',
@@ -98,71 +191,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
 
     async handler(req) {
       const { query, variables } = req.body;
-      const myQueryType = new GraphQLObjectType({
-        name: 'Query',
-        fields: () => ({
-          memberTypes: {
-            type: new GraphQLList(memberTypeInterface),
-            resolve: async () => await prisma.memberType.findMany()
-          },
-          memberType : {
-            type: memberTypeInterface,
-            args: {
-              id: {
-                type: memberTypeId
-              }
-            },
-            resolve: async (_, args: { id: string }) =>
-              await prisma.memberType.findUnique({ where: { id: args.id } })
-          },
-          posts: {
-            type: new GraphQLList(postInterface),
-            resolve: async () => await prisma.post.findMany()
-          },
-          post: {
-            type: postInterface,
-            args: {
-              id: {
-                type: UUIDType
-              }
-            },
-            resolve: async (_, args: { id: string }) => await prisma.post.findUnique({ where: { id: args.id } })
-          },
 
-          users: {
-            type: new GraphQLList(userInterface),
-            resolve: async () => await prisma.user.findMany()
-          },
-          user: {
-            type: userInterface,
-            args: {
-              id: {
-                type: UUIDType
-              }
-            },
-            resolve: async (_, args: { id: string }) =>
-              await prisma.user.findUnique({ where: { id: args.id } })
-          },
-          profiles: {
-            type: new GraphQLList(profileInterface),
-            resolve: async () => await prisma.profile.findMany()
-          },
-          profile: {
-            type: profileInterface,
-            args: {
-              id: {
-                type: UUIDType
-              }
-            },
-            resolve: async (_, args: { id: string }) =>
-              await prisma.profile.findUnique({ where: { id: args.id } })
-          },
-        }),
-      });
-
-      const ProjectSchema = new GraphQLSchema({
-        query: myQueryType,
-      });
 
       const result = await graphql({
         schema: ProjectSchema,
