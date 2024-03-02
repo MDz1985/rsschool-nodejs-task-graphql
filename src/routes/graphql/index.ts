@@ -46,68 +46,141 @@ const postInterface = new GraphQLObjectType({
   })
 });
 
-const profileInterface = new GraphQLObjectType({
-  name: 'Profile',
-  fields: () => ({
-    id: {
-      type: new GraphQLNonNull(GraphQLString),
-    },
-    isMale: {
-      type: new GraphQLNonNull(GraphQLBoolean),
-    },
-    yearOfBirth: {
-      type: new GraphQLNonNull(GraphQLInt),
-    },
-    userId: {
-      type: new GraphQLNonNull(GraphQLString),
-    },
-    memberTypeId: {
-      type: new GraphQLNonNull(GraphQLString),
-    },
-    memberType: {
-      type: memberTypeInterface
-    }
-  })
-});
-
-const userInterface = new GraphQLObjectType({
-  name: 'User',
-  fields: () => ({
-    id: {
-      type: new GraphQLNonNull(GraphQLString),
-    },
-    name: {
-      type: new GraphQLNonNull(GraphQLString),
-    },
-    balance: {
-      type: new GraphQLNonNull(GraphQLFloat),
-    },
-    profile: {
-      type: profileInterface
-    },
-    posts: {
-      type: new GraphQLList(postInterface)
-    },
-    userSubscribedTo: {
-      type: new GraphQLList(userInterface)
-    },
-    subscribedToUser: {
-      type: new GraphQLList(userInterface)
-    }
-  })
-});
-
-
-
 
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const { prisma } = fastify;
+
+  const profileInterface = new GraphQLObjectType({
+    name: 'Profile',
+    fields: () => ({
+      id: {
+        type: new GraphQLNonNull(GraphQLString),
+      },
+      isMale: {
+        type: new GraphQLNonNull(GraphQLBoolean),
+      },
+      yearOfBirth: {
+        type: new GraphQLNonNull(GraphQLInt),
+      },
+      userId: {
+        type: new GraphQLNonNull(GraphQLString),
+      },
+      memberTypeId: {
+        type: new GraphQLNonNull(GraphQLString),
+      },
+      memberType: {
+        type: memberTypeInterface,
+        resolve: async (parent: { memberTypeId: string }) => {
+          return await prisma.memberType.findUnique({ where: { id: parent.memberTypeId } });
+        }
+      },
+    })
+  });
+
+  const subscribedToInterface = new GraphQLObjectType({
+    name: 'SubscribedToUser',
+    fields: () => ({
+      id: { type: new GraphQLNonNull(UUIDType) },
+      name: { type: new GraphQLNonNull(GraphQLString) },
+      balance: { type: new GraphQLNonNull(GraphQLFloat) },
+      userSubscribedTo: {
+        type: new GraphQLList(userInterface),
+        resolve: async (source: { id: string }) => {
+          const subscriptions = await prisma.subscribersOnAuthors?.findMany();
+          return Promise.all(subscriptions?.filter(({ subscriberId }) => subscriberId === source?.id)
+            .map(({ authorId }) => prisma.user.findUnique({ where: { id: authorId } }))
+          );
+        }
+      },
+      subscribedToUser: {
+        type: new GraphQLList(userInterface),
+        resolve: async (source: { id: string }) => {
+          const subscriptions = await prisma.subscribersOnAuthors?.findMany();
+          return Promise.all(subscriptions?.filter(({ authorId }) => authorId === source?.id)
+            .map(({ subscriberId }) => prisma.user.findUnique({ where: { id: subscriberId } }))
+          );
+        }
+      }
+    })
+  });
+
+  const userSubscribedToInterface = new GraphQLObjectType({
+    name: 'UserSubscribedTo',
+    fields: () => ({
+      id: { type: new GraphQLNonNull(UUIDType) },
+      name: { type: new GraphQLNonNull(GraphQLString) },
+      balance: { type: new GraphQLNonNull(GraphQLFloat) },
+      userSubscribedTo: {
+        type: new GraphQLList(userInterface),
+        resolve: async (source: { id: string }) => {
+          const subscriptions = await prisma.subscribersOnAuthors?.findMany();
+          return Promise.all(subscriptions?.filter(({ subscriberId }) => subscriberId === source?.id)
+            .map(({ authorId }) => prisma.user.findUnique({ where: { id: authorId } }))
+          );
+        }
+      },
+      subscribedToUser: {
+        type: new GraphQLList(userInterface),
+        resolve: async (source: { id: string }) => {
+          const subscriptions = await prisma.subscribersOnAuthors?.findMany();
+          return Promise.all(subscriptions?.filter(({ authorId }) => authorId === source?.id)
+            .map(({ subscriberId }) => prisma.user.findUnique({ where: { id: subscriberId } }))
+          );
+        }
+      }
+    })
+  });
+  const userInterface = new GraphQLObjectType({
+    name: 'User',
+    fields: () => ({
+      id: {
+        type: new GraphQLNonNull(GraphQLString),
+      },
+      name: {
+        type: new GraphQLNonNull(GraphQLString),
+      },
+      balance: {
+        type: new GraphQLNonNull(GraphQLFloat),
+      },
+      profile: {
+        type: profileInterface,
+        resolve: async (parent: { id: string }) => {
+          return await prisma.profile.findUnique({ where: { userId: parent.id } });
+        }
+      },
+      posts: {
+        type: new GraphQLList(postInterface),
+        resolve: async (parent) => {
+          return await prisma.post.findMany({ where: { authorId: parent.id } });
+        }
+      },
+      userSubscribedTo: {
+        type: new GraphQLList(userSubscribedToInterface),
+        resolve: async (parent: { id: string }) => {
+          const subscriptions = await prisma.subscribersOnAuthors?.findMany();
+          return Promise.all(subscriptions?.filter(({ subscriberId }) => subscriberId === parent.id)
+            .map(({ authorId }) => prisma.user.findUnique({ where: { id: authorId } }))
+          );
+        }
+      },
+      subscribedToUser: {
+        type: new GraphQLList(subscribedToInterface),
+        resolve: async (parent: { id: string }) => {
+          const subscriptions = await prisma.subscribersOnAuthors?.findMany();
+          return Promise.all(subscriptions?.filter(({ authorId }) => authorId === parent.id)
+            .map(({ subscriberId }) => prisma.user.findUnique({ where: { id: subscriberId } }))
+          );
+        }
+      }
+    })
+  });
+
   const myQueryType = new GraphQLObjectType({
     name: 'Query',
     fields: () => ({
       memberTypes: {
         type: new GraphQLList(memberTypeInterface),
-        resolve: async () => await prisma.memberType.findMany()
+        resolve: () => prisma.memberType.findMany()
       },
       memberType: {
         type: memberTypeInterface,
@@ -116,12 +189,12 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
             type: memberTypeId
           }
         },
-        resolve: async (_, args: { id: string }) =>
-          await prisma.memberType.findUnique({ where: { id: args.id } })
+        resolve: (_, args: { id: string }) =>
+          prisma.memberType.findUnique({ where: { id: args.id } })
       },
       posts: {
         type: new GraphQLList(postInterface),
-        resolve: async () => await prisma.post.findMany()
+        resolve: () => prisma.post.findMany()
       },
       post: {
         type: postInterface,
@@ -135,7 +208,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
 
       users: {
         type: new GraphQLList(userInterface),
-        resolve: async () => await prisma.user.findMany()
+        resolve: () => prisma.user.findMany()
       },
       user: {
         type: userInterface,
@@ -145,22 +218,12 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
           }
         },
         resolve: async (_, args: { id: string }) => {
-          const user = await prisma.user.findUnique({ where: { id: args.id } });
-          if (!user?.id) return null;
-          const profile = await prisma.profile.findUnique({ where: { userId: user.id } });
-          const posts = await prisma.post.findMany({ where: { authorId: user.id } });
-          const userSubscribedTo = await prisma.post.findMany({ where: { authorId: user.id } });
-          const subscribedToUser = null;
-
-          console.log(user, profile, posts, userSubscribedTo, subscribedToUser);
-
-
-          return user ? { ...user, profile, posts } : null;
+          return prisma.user.findUnique({ where: { id: args.id } });
         }
       },
       profiles: {
         type: new GraphQLList(profileInterface),
-        resolve: async () => await prisma.profile.findMany()
+        resolve: () => prisma.profile.findMany()
       },
       profile: {
         type: profileInterface,
@@ -199,7 +262,6 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         variableValues: variables,
         contextValue: { prisma }
       });
-      console.log(result?.errors);
       return {
         data: result.data,
         errors: result.errors,
