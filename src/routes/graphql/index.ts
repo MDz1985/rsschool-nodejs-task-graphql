@@ -12,10 +12,14 @@ import {
   userInputType
 } from './types/mutations.js';
 import { memberTypeInterface, postInterface, profileInterface, userInterface } from './types/queries.js';
+import DataLoader from 'dataloader';
+import { MemberType, Post, SubscribersOnAuthors, User } from '@prisma/client';
 
 
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const { prisma } = fastify;
+
+
 
 
 
@@ -255,12 +259,74 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     async handler(req) {
       const { query, variables } = req.body;
 
+      const memberTypeLoader = new DataLoader<string, MemberType | null>(async (keys) => {
+        const memberTypes = await prisma.memberType.findMany({
+          where: { id: { in: keys as string[] } },
+        });
+        const memberTypeMap: Record<string, MemberType> = {};
+        memberTypes.forEach((memberType) => {
+          memberTypeMap[memberType.id] = memberType;
+        });
+        return keys.map((key) => memberTypeMap[key] || null);
+      });
+
+      const postLoader = new DataLoader<string, Post | null>(async (keys) => {
+        const posts = await prisma.post.findMany({
+          where: { id: { in: keys as string[] } },
+        });
+        const postMap: Record<string, Post> = {};
+        posts.forEach((post) => {
+          postMap[post.id] = post;
+        });
+        return keys.map((key) => postMap[key] || null);
+      });
+
+      const userLoader = new DataLoader<string, User | null>(async (keys) => {
+        const users = await prisma.user.findMany({
+          where: { id: { in: keys as string[] } },
+        });
+        const userMap: Record<string, User> = {};
+        users.forEach((user) => {
+          userMap[user.id] = user;
+        });
+        return keys.map((key) => userMap[key] || null);
+      });
+
+      const subscribersOnAuthorsLoader = new DataLoader<string, SubscribersOnAuthors[] | null>(async (keys) => {
+        const subscriptions = await prisma.subscribersOnAuthors.findMany({
+          where: { subscriberId: { in: keys as string[] } },
+        });
+        const subscriptionsMap: Record<string, SubscribersOnAuthors[]> = {};
+        subscriptions.forEach((subscription) => {
+          if (!subscriptionsMap[subscription.subscriberId]) {
+            subscriptionsMap[subscription.subscriberId] = [];
+          }
+          subscriptionsMap[subscription.subscriberId].push(subscription);
+        });
+        return keys.map((key) => subscriptionsMap[key] || null);
+      });
+
+      const userSubscribersOnAuthorsLoader = new DataLoader<string, SubscribersOnAuthors[] | null>(async (keys) => {
+        const subscriptions = await prisma.subscribersOnAuthors.findMany({
+          where: { authorId: { in: keys as string[] } },
+        });
+
+        const subscriptionsMap: Record<string, SubscribersOnAuthors[]> = {};
+        subscriptions.forEach((subscription) => {
+          if (!subscriptionsMap[subscription.authorId]) {
+            subscriptionsMap[subscription.authorId] = [];
+          }
+          subscriptionsMap[subscription.authorId].push(subscription);
+        });
+
+        return keys.map((key) => subscriptionsMap[key] || null);
+      });
 
       const result = await graphql({
         schema: ProjectSchema,
         source: query,
         variableValues: variables,
-        contextValue: { prisma },
+        contextValue: { prisma, memberTypeLoader, postLoader, subscribersOnAuthorsLoader, userSubscribersOnAuthorsLoader, userLoader },
       });
       console.log(result.errors, '#@ERRORS');
 
