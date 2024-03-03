@@ -13,14 +13,11 @@ import {
 } from './types/mutations.js';
 import { memberTypeInterface, postInterface, profileInterface, userInterface } from './types/queries.js';
 import DataLoader from 'dataloader';
-import { MemberType, Post, SubscribersOnAuthors, User } from '@prisma/client';
+import { MemberType, Post, Profile, SubscribersOnAuthors, User } from '@prisma/client';
 
 
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const { prisma } = fastify;
-
-
-
 
 
   const myQueryType = new GraphQLObjectType({
@@ -270,15 +267,31 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         return keys.map((key) => memberTypeMap[key] || null);
       });
 
-      const postLoader = new DataLoader<string, Post | null>(async (keys) => {
+      const profileLoader = new DataLoader<string, Profile | null>(async (keys) => {
+        const profiles = await prisma.profile.findMany({
+          where: { userId: { in: keys as string[] } },
+        });
+        const profileMap: Map<string, Profile> = new Map();
+        profiles.forEach((profile) => {
+          profileMap.set(profile.userId, profile);
+        });
+        return keys.map((key) => profileMap.get(key) ?? null);
+      });
+
+      const postLoader = new DataLoader<string, Post[] | null>(async (keys) => {
         const posts = await prisma.post.findMany({
-          where: { id: { in: keys as string[] } },
+          where: { authorId: { in: keys as string[] } }
         });
-        const postMap: Record<string, Post> = {};
+        const postMap: Map<string, Post[]> = new Map();
         posts.forEach((post) => {
-          postMap[post.id] = post;
+          if (!postMap.has(post.authorId)) {
+            postMap.set(post.authorId, []);
+          }
+          postMap.get(post.authorId)?.push(post);
         });
-        return keys.map((key) => postMap[key] || null);
+        // console.log(postMap.values(), '@@');
+
+        return keys.map((key) => postMap.get(key) ?? null);
       });
 
       const userLoader = new DataLoader<string, User | null>(async (keys) => {
@@ -292,27 +305,29 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         return keys.map((key) => userMap[key] || null);
       });
 
-      const subscribersOnAuthorsLoader = new DataLoader<string, SubscribersOnAuthors[] | null>(async (keys) => {
+
+      const subscriptions = await prisma.subscribersOnAuthors.findMany();
+      const userSubscribedToLoader = new DataLoader<string, SubscribersOnAuthors[] | null>(async (keys) => {
         const subscriptions = await prisma.subscribersOnAuthors.findMany({
           where: { subscriberId: { in: keys as string[] } },
         });
-        const subscriptionsMap: Record<string, SubscribersOnAuthors[]> = {};
+        const subscriptionsMap: Map<string, SubscribersOnAuthors[]> = new Map();
         subscriptions.forEach((subscription) => {
-          if (!subscriptionsMap[subscription.subscriberId]) {
-            subscriptionsMap[subscription.subscriberId] = [];
+          if (!subscriptionsMap.has(subscription.subscriberId)) {
+            subscriptionsMap.set(subscription.subscriberId, []);
           }
-          subscriptionsMap[subscription.subscriberId].push(subscription);
+          subscriptionsMap.get(subscription.subscriberId)?.push(subscription);
         });
-        return keys.map((key) => subscriptionsMap[key] || null);
+        return keys.map((key) => subscriptionsMap.get(key) ?? null);
       });
 
-      const userSubscribersOnAuthorsLoader = new DataLoader<string, SubscribersOnAuthors[] | null>(async (keys) => {
+      const subscribedToUserLoader = new DataLoader<string, SubscribersOnAuthors[] | null>(async (keys) => {
         const subscriptions = await prisma.subscribersOnAuthors.findMany({
           where: { authorId: { in: keys as string[] } },
         });
-
         const subscriptionsMap: Record<string, SubscribersOnAuthors[]> = {};
         subscriptions.forEach((subscription) => {
+
           if (!subscriptionsMap[subscription.authorId]) {
             subscriptionsMap[subscription.authorId] = [];
           }
@@ -326,7 +341,15 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         schema: ProjectSchema,
         source: query,
         variableValues: variables,
-        contextValue: { prisma, memberTypeLoader, postLoader, subscribersOnAuthorsLoader, userSubscribersOnAuthorsLoader, userLoader },
+        contextValue: {
+          prisma,
+          memberTypeLoader,
+          postLoader,
+          userSubscribedToLoader,
+          subscribedToUserLoader,
+          userLoader,
+          profileLoader
+        },
       });
       console.log(result.errors, '#@ERRORS');
 

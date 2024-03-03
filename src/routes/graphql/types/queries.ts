@@ -3,8 +3,6 @@ import { GraphQLFloat } from 'graphql/type/scalars.js';
 import { UUIDType } from './uuid.js';
 
 
-
-
 export const memberTypeInterface = new GraphQLObjectType({
   name: 'MemberType',
   fields: () => ({
@@ -61,9 +59,6 @@ export const profileInterface = new GraphQLObjectType({
       resolve: async (parent: { memberTypeId: string }, args, context) => {
         return context.memberTypeLoader.load(parent.memberTypeId);
       },
-      // resolve: async (parent: { memberTypeId: string }, _, context) => {
-      //   return await context.prisma.memberType.findUnique({ where: { id: parent.memberTypeId } });
-      // }
     },
   })
 });
@@ -76,20 +71,18 @@ export const subscribedToInterface = new GraphQLObjectType({
     balance: { type: new GraphQLNonNull(GraphQLFloat) },
     userSubscribedTo: {
       type: new GraphQLList(userInterface),
-      resolve: async (source: { id: string },_, context) => {
-        const subscriptions = await context.prisma.subscribersOnAuthors?.findMany();
-        return Promise.all(subscriptions?.filter(({ subscriberId }) => subscriberId === source?.id)
-          .map(({ authorId }) => context.prisma.user.findUnique({ where: { id: authorId } }))
-        );
+      resolve: async (source: { id: string }, _, context) => {
+        const subscriptions = await context.userSubscribedToLoader.load(source.id);
+        if (!subscriptions) return [];
+        return context.userLoader.loadMany(subscriptions.map(({ authorId }) => authorId));
       }
     },
     subscribedToUser: {
       type: new GraphQLList(userInterface),
-      resolve: async (source: { id: string },_, context) => {
-        const subscriptions = await context.prisma.subscribersOnAuthors?.findMany();
-        return Promise.all(subscriptions?.filter(({ authorId }) => authorId === source?.id)
-          .map(({ subscriberId }) => context.prisma.user.findUnique({ where: { id: subscriberId } }))
-        );
+      resolve: async (source: { id: string }, _, context) => {
+        const subscriptions = await context.subscribedToUserLoader.load(source.id);
+        if (!subscriptions) return [];
+        return context.userLoader.loadMany(subscriptions.map(({ subscriberId }) => subscriberId));
       }
     }
   })
@@ -103,20 +96,18 @@ export const userSubscribedToInterface = new GraphQLObjectType({
     balance: { type: new GraphQLNonNull(GraphQLFloat) },
     userSubscribedTo: {
       type: new GraphQLList(userInterface),
-      resolve: async (source: { id: string }, _,context) => {
-        const subscriptions = await context.prisma.subscribersOnAuthors?.findMany();
-        return Promise.all(subscriptions?.filter(({ subscriberId }) => subscriberId === source?.id)
-          .map(({ authorId }) => context.prisma.user.findUnique({ where: { id: authorId } }))
-        );
+      resolve: async (source: { id: string }, _, context) => {
+        const subscriptions = await context.userSubscribedToLoader.load(source.id);
+        if (!subscriptions) return [];
+        return context.userLoader.loadMany(subscriptions.map(({ authorId }) => authorId));
       }
     },
     subscribedToUser: {
       type: new GraphQLList(userInterface),
-      resolve: async (source: { id: string },_,context) => {
-        const subscriptions = await context.prisma.subscribersOnAuthors?.findMany();
-        return Promise.all(subscriptions?.filter(({ authorId }) => authorId === source?.id)
-          .map(({ subscriberId }) => context.prisma.user.findUnique({ where: { id: subscriberId } }))
-        );
+      resolve: async (source: { id: string }, _, context) => {
+        const subscriptions = await context.subscribedToUserLoader.load(source.id);
+        if (!subscriptions) return [];
+        return context.userLoader.loadMany(subscriptions.map(({ subscriberId }) => subscriberId));
       }
     }
   })
@@ -136,37 +127,29 @@ export const userInterface = new GraphQLObjectType({
     profile: {
       type: profileInterface,
       resolve: async (parent: { id: string }, _, context) => {
-        return await context.prisma.profile.findUnique({ where: { userId: parent.id } });
+        return context.profileLoader.load(parent.id);
       }
     },
     posts: {
       type: new GraphQLList(postInterface),
-      resolve: async (parent,args,context) => {
-        return await context.prisma.post.findMany({ where: { authorId: parent.id } });
+      resolve: async (parent, args, context) => {
+        return await context.postLoader.load(parent.id);
       }
     },
     userSubscribedTo: {
       type: new GraphQLList(userSubscribedToInterface),
-      resolve: async (parent: { id: string },_, context) => {
-        const subscriptions = await context.subscribersOnAuthorsLoader.load(parent.id);
+      resolve: async (parent: { id: string }, _, context) => {
+        const subscriptions = await context.userSubscribedToLoader.load(parent.id);
         if (!subscriptions) return [];
-        return Promise.all(subscriptions.map(({ authorId }) => context.userLoader.load(authorId) ))
-        // const subscriptions = await context.prisma.subscribersOnAuthors?.findMany();
-        // return Promise.all(subscriptions?.filter(({ subscriberId }) => subscriberId === parent.id)
-        //   .map(({ authorId }) => context.prisma.user.findUnique({ where: { id: authorId } }))
-        // );
+        return context.userLoader.loadMany(subscriptions.map(({ authorId }) => authorId));
       }
     },
     subscribedToUser: {
       type: new GraphQLList(subscribedToInterface),
-      resolve: async (parent: { id: string },_,context) => {
-        const subscriptions = await context.userSubscribersOnAuthorsLoader.load(parent.id);
+      resolve: async (parent: { id: string }, _, context) => {
+        const subscriptions = await context.subscribedToUserLoader.load(parent.id);
         if (!subscriptions) return [];
-        return Promise.all(subscriptions.map(({ subscriberId }) => context.userLoader.load(subscriberId)));
-        // const subscriptions = await context.prisma.subscribersOnAuthors?.findMany();
-        // return Promise.all(subscriptions?.filter(({ authorId }) => authorId === parent.id)
-        //   .map(({ subscriberId }) => context.prisma.user.findUnique({ where: { id: subscriberId } }))
-        // );
+        return context.userLoader.loadMany(subscriptions.map(({ subscriberId }) => subscriberId));
       }
     }
   })
