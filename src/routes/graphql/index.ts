@@ -196,11 +196,70 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const profileInputType = new GraphQLInputObjectType({
     name: 'CreateProfileInput',
     fields: () => ({
-      userId: { type: new GraphQLNonNull(UUIDType) },
+      userId: { type: UUIDType },
       memberTypeId: { type: new GraphQLNonNull(memberTypeId) },
       isMale: { type: new GraphQLNonNull(GraphQLBoolean) },
       yearOfBirth: { type: new GraphQLNonNull(GraphQLInt) },
     })
+  });
+
+  const changeUserInputType = new GraphQLInputObjectType({
+    name: 'ChangeUserInput',
+    fields: () => ({
+      name: { type: GraphQLString },
+      balance: { type: GraphQLFloat, }
+    })
+  });
+
+  const changePostInputType = new GraphQLInputObjectType({
+    name: 'ChangePostInput',
+    fields: () => ({
+      authorId: { type: UUIDType },
+      content: { type: GraphQLString },
+      title: { type: GraphQLString }
+    })
+  });
+
+  const changeProfileInputType = new GraphQLInputObjectType({
+    name: 'ChangeProfileInput',
+    fields: () => ({
+      userId: { type: UUIDType },
+      memberTypeId: { type: memberTypeId },
+      isMale: { type: GraphQLBoolean },
+      yearOfBirth: { type: GraphQLInt },
+    })
+  });
+
+  const changePostResultType = new GraphQLObjectType({
+    name: 'ChangePostResult',
+    fields: () => ({
+      id: {
+        type: new GraphQLNonNull(UUIDType),
+      },
+      title: {
+        type: new GraphQLNonNull(GraphQLString),
+      },
+      content: {
+        type: new GraphQLNonNull(GraphQLString),
+      },
+      authorId: {
+        type: new GraphQLNonNull(UUIDType),
+      },
+    })
+  });
+
+  const changeProfileResultType = new GraphQLObjectType({
+    name: 'ChangeProfileResult',
+    fields: () => ({
+      id:{type:UUIDType}
+    }),
+  });
+
+  const changeUserResultType = new GraphQLObjectType({
+    name: 'ChangeUserResult',
+    fields: () => ({
+      id:{type:UUIDType}
+    }),
   });
 
   const myQueryType = new GraphQLObjectType({
@@ -336,7 +395,56 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         }) => {
           return JSON.stringify(await prisma.user.delete({ where: { id: args.id } }));
         },
-      }
+      },
+
+
+      changePost: {
+        type: changePostResultType,
+        args: {
+          id: { type: UUIDType },
+          dto: { type: new GraphQLNonNull(changePostInputType) }
+        },
+        resolve: async (_, args: {
+          id: string,
+          dto:  { authorId?: string, content?: string, title?: string }
+        }) => {
+          console.log(args,'@@@#')
+          return await prisma.post.update({ where: { id: args.id }, data: args.dto  });
+        },
+      },
+
+      changeProfile: {
+        type: changeProfileResultType,
+        args: {
+          id: { type: UUIDType },
+          dto: { type: changeProfileInputType }
+        },
+        resolve: async (_, args: {
+          id: string,
+          dto: {
+            userId?: string,
+            memberTypeId?: string,
+            isMale?: boolean,
+            yearOfBirth?: number
+          }
+        }) => {
+          return prisma.profile.update({ where: { id: args.id }, data: args.dto });
+        },
+      },
+
+      changeUser: {
+        type: changeUserResultType,
+        args: {
+          id: { type: UUIDType },
+          dto: { type: changeUserInputType }
+        },
+        resolve: async (_, args: {
+          id: string,
+          dto: { name?: string, balance?: number }
+        }) => {
+          return prisma.user.update({ where: { id: args.id }, data: args.dto });
+        },
+      },
     }),
   });
 
