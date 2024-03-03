@@ -1,10 +1,9 @@
 import { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { createGqlResponseSchema, gqlResponseSchema } from './schemas.js';
-import { graphql, GraphQLList, GraphQLScalarType } from 'graphql';
+import { graphql, GraphQLInputObjectType, GraphQLList, GraphQLScalarType } from 'graphql';
 import { GraphQLBoolean, GraphQLInt, GraphQLNonNull, GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql/index.js';
 import { GraphQLFloat } from 'graphql/type/scalars.js';
 import { UUIDType } from './types/uuid.js';
-
 
 const memberTypeId = new GraphQLScalarType({
   name: 'MemberTypeId',
@@ -175,6 +174,35 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     })
   });
 
+  const userInputType = new GraphQLInputObjectType({
+    name: 'CreateUserInput',
+    fields: () => ({
+      name: { type: new GraphQLNonNull(UUIDType) },
+      balance: { type: new GraphQLNonNull(GraphQLFloat), }
+    })
+  });
+
+  const postInputType = new GraphQLInputObjectType({
+    name: 'CreatePostInput',
+    fields: () => ({
+      authorId: {
+        type: new GraphQLNonNull(UUIDType),
+      },
+      content: { type: new GraphQLNonNull(GraphQLString) },
+      title: { type: new GraphQLNonNull(GraphQLString) }
+    })
+  });
+
+  const profileInputType = new GraphQLInputObjectType({
+    name: 'CreateProfileInput',
+    fields: () => ({
+      userId: { type: new GraphQLNonNull(UUIDType) },
+      memberTypeId: { type: new GraphQLNonNull(memberTypeId) },
+      isMale: { type: new GraphQLNonNull(GraphQLBoolean) },
+      yearOfBirth: { type: new GraphQLNonNull(GraphQLInt) },
+    })
+  });
+
   const myQueryType = new GraphQLObjectType({
     name: 'Query',
     fields: () => ({
@@ -238,8 +266,49 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     }),
   });
 
+  const myMutationType = new GraphQLObjectType({
+    name: 'Mutation',
+    fields: () => ({
+      createPost: {
+        type: postInterface,
+        args: {
+          dto: { type: postInputType }
+        },
+        resolve: async (_, args: { dto: { authorId: string, content: string, title: string } }) => {
+          return prisma.post.create({ data: args.dto });
+        },
+      },
+      createUser: {
+        type: userInterface,
+        args: {
+          dto: { type: userInputType }
+        },
+        resolve: async (_, args: { dto: { name: string, balance: number } }) => {
+          return prisma.user.create({ data: args.dto });
+        },
+      },
+      createProfile: {
+        type: profileInterface,
+        args: {
+          dto: { type: profileInputType }
+        },
+        resolve: async (_, args: {
+          dto: {
+            userId: string,
+            memberTypeId: string,
+            isMale: boolean,
+            yearOfBirth: number
+          }
+        }) => {
+          return prisma.profile.create({ data: args.dto });
+        },
+      },
+    }),
+  });
+
   const ProjectSchema = new GraphQLSchema({
     query: myQueryType,
+    mutation: myMutationType
   });
 
   fastify.route({
@@ -262,6 +331,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         variableValues: variables,
         contextValue: { prisma }
       });
+      console.log(result.errors);
       return {
         data: result.data,
         errors: result.errors,
