@@ -214,7 +214,6 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const changePostInputType = new GraphQLInputObjectType({
     name: 'ChangePostInput',
     fields: () => ({
-      authorId: { type: UUIDType },
       content: { type: GraphQLString },
       title: { type: GraphQLString }
     })
@@ -223,8 +222,6 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const changeProfileInputType = new GraphQLInputObjectType({
     name: 'ChangeProfileInput',
     fields: () => ({
-      userId: { type: UUIDType },
-      memberTypeId: { type: memberTypeId },
       isMale: { type: GraphQLBoolean },
       yearOfBirth: { type: GraphQLInt },
     })
@@ -406,9 +403,8 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         },
         resolve: async (_, args: {
           id: string,
-          dto:  { authorId?: string, content?: string, title?: string }
+          dto:  { content?: string, title?: string }
         }) => {
-          console.log(args,'@@@#')
           return await prisma.post.update({ where: { id: args.id }, data: args.dto  });
         },
       },
@@ -422,8 +418,6 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         resolve: async (_, args: {
           id: string,
           dto: {
-            userId?: string,
-            memberTypeId?: string,
             isMale?: boolean,
             yearOfBirth?: number
           }
