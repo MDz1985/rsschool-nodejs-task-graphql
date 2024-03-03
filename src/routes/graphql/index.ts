@@ -300,9 +300,43 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
             yearOfBirth: number
           }
         }) => {
-          return prisma.profile.create({ data: args.dto });
+            return prisma.profile.create({ data: args.dto });
         },
       },
+      deletePost: {
+        type: GraphQLString,
+        args: {
+          id: { type: UUIDType }
+        },
+        resolve: async (_, args: {
+          id: string
+        }) => {
+          console.log(args)
+          return JSON.stringify(await prisma.post.delete({ where: { id: args.id } }));
+        },
+      },
+      deleteProfile: {
+        type: GraphQLString,
+        args: {
+          id: { type: UUIDType }
+        },
+        resolve: async (_, args: {
+          id: string
+        }) => {
+          return JSON.stringify(await prisma.profile.delete({ where: { id: args.id } }));
+        },
+      },
+      deleteUser: {
+        type: GraphQLString,
+        args: {
+          id: { type: UUIDType }
+        },
+        resolve: async (_, args: {
+          id: string
+        }) => {
+          return JSON.stringify(await prisma.user.delete({ where: { id: args.id } }));
+        },
+      }
     }),
   });
 
@@ -331,7 +365,8 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         variableValues: variables,
         contextValue: { prisma }
       });
-      console.log(result.errors);
+      console.log(result.errors, '#@ERRORS');
+
       return {
         data: result.data,
         errors: result.errors,
