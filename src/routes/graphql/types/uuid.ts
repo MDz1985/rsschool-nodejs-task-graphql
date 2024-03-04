@@ -29,3 +29,10 @@ export const UUIDType = new GraphQLScalarType({
     return undefined;
   },
 });
+
+export const memberTypeId = new GraphQLScalarType({
+  name: 'MemberTypeId',
+  parseValue(value) {
+    return value;
+  }
+});
