@@ -8,7 +8,6 @@ export interface ILoaders {
   subscribedToUserLoader: DataLoader<string, SubscribersOnAuthors[]  | null>;
   userLoader: DataLoader<string, User | null>;
   profileLoader: DataLoader<string, Profile | null>;
-
 }
 
 export interface IContext extends ILoaders {
