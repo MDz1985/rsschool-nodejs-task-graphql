@@ -6,10 +6,8 @@ import { myQueryType } from './query.js';
 import { myMutationType } from './mutations.js';
 import { createLoaders } from './loaders/loaders.js';
 
-
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const { prisma } = fastify;
-
 
   const ProjectSchema = new GraphQLSchema({
     query: myQueryType,

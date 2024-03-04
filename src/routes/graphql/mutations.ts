@@ -89,12 +89,10 @@ export const myMutationType = new GraphQLObjectType({
         id: { type: UUIDType },
         dto: { type: new GraphQLNonNull(changePostInputType) }
       },
-      resolve: async (_, args: {
+      resolve: (_, args: {
         id: string,
         dto: { content?: string, title?: string }
-      }, context: IContext) => {
-        return await context.prisma.post.update({ where: { id: args.id }, data: args.dto });
-      },
+      }, context: IContext) => context.prisma.post.update({ where: { id: args.id }, data: args.dto })
     },
 
     changeProfile: {
@@ -134,12 +132,10 @@ export const myMutationType = new GraphQLObjectType({
         userId: { type: UUIDType },
         authorId: { type: UUIDType }
       },
-      resolve: async (_, args: {
+      resolve: (_, args: {
         userId: string,
         authorId: string
-      }, context: IContext) => {
-        return await context.prisma.subscribersOnAuthors.create({ data: { authorId: args.authorId, subscriberId: args.userId } });
-      },
+      }, context: IContext) => context.prisma.subscribersOnAuthors.create({ data: { authorId: args.authorId, subscriberId: args.userId } })
     },
 
     unsubscribeFrom: {

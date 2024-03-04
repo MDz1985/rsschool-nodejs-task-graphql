@@ -1,6 +1,7 @@
 import { GraphQLBoolean, GraphQLInt, GraphQLList, GraphQLNonNull, GraphQLObjectType, GraphQLString } from 'graphql/index.js';
 import { GraphQLFloat } from 'graphql/type/scalars.js';
-import { UUIDType } from './uuid.js';
+import { IContext } from '../models/interfaces.js';
+import { SubscribersOnAuthors } from '@prisma/client';
 
 
 export const memberTypeInterface = new GraphQLObjectType({
@@ -56,62 +57,13 @@ export const profileInterface = new GraphQLObjectType({
     },
     memberType: {
       type: memberTypeInterface,
-      resolve: async (parent: { memberTypeId: string }, args, context) => {
+      resolve: async (parent: { memberTypeId: string }, _, context: IContext) => {
         return context.memberTypeLoader.load(parent.memberTypeId);
       },
     },
   })
 });
 
-export const subscribedToInterface = new GraphQLObjectType({
-  name: 'SubscribedToUser',
-  fields: () => ({
-    id: { type: new GraphQLNonNull(UUIDType) },
-    name: { type: new GraphQLNonNull(GraphQLString) },
-    balance: { type: new GraphQLNonNull(GraphQLFloat) },
-    userSubscribedTo: {
-      type: new GraphQLList(userInterface),
-      resolve: async (source: { id: string }, _, context) => {
-        const subscriptions = await context.userSubscribedToLoader.load(source.id);
-        if (!subscriptions) return [];
-        return context.userLoader.loadMany(subscriptions.map(({ authorId }) => authorId));
-      }
-    },
-    subscribedToUser: {
-      type: new GraphQLList(userInterface),
-      resolve: async (source: { id: string }, _, context) => {
-        const subscriptions = await context.subscribedToUserLoader.load(source.id);
-        if (!subscriptions) return [];
-        return context.userLoader.loadMany(subscriptions.map(({ subscriberId }) => subscriberId));
-      }
-    }
-  })
-});
-
-export const userSubscribedToInterface = new GraphQLObjectType({
-  name: 'UserSubscribedTo',
-  fields: () => ({
-    id: { type: new GraphQLNonNull(UUIDType) },
-    name: { type: new GraphQLNonNull(GraphQLString) },
-    balance: { type: new GraphQLNonNull(GraphQLFloat) },
-    userSubscribedTo: {
-      type: new GraphQLList(userInterface),
-      resolve: async (source: { id: string }, _, context) => {
-        const subscriptions = await context.userSubscribedToLoader.load(source.id);
-        if (!subscriptions) return [];
-        return context.userLoader.loadMany(subscriptions.map(({ authorId }) => authorId));
-      }
-    },
-    subscribedToUser: {
-      type: new GraphQLList(userInterface),
-      resolve: async (source: { id: string }, _, context) => {
-        const subscriptions = await context.subscribedToUserLoader.load(source.id);
-        if (!subscriptions) return [];
-        return context.userLoader.loadMany(subscriptions.map(({ subscriberId }) => subscriberId));
-      }
-    }
-  })
-});
 export const userInterface = new GraphQLObjectType({
   name: 'User',
   fields: () => ({
@@ -126,30 +78,30 @@ export const userInterface = new GraphQLObjectType({
     },
     profile: {
       type: profileInterface,
-      resolve: async (parent: { id: string }, _, context) => {
+      resolve: async (parent: { id: string }, _, context: IContext) => {
         return context.profileLoader.load(parent.id);
       }
     },
     posts: {
       type: new GraphQLList(postInterface),
-      resolve: async (parent, args, context) => {
+      resolve: async (parent, _, context: IContext) => {
         return await context.postLoader.load(parent.id);
       }
     },
     userSubscribedTo: {
-      type: new GraphQLList(userSubscribedToInterface),
-      resolve: async (parent: { id: string }, _, context) => {
+      type: new GraphQLList(userInterface),
+      resolve: async (parent: { id: string }, _, context: IContext) => {
         const subscriptions = await context.userSubscribedToLoader.load(parent.id);
         if (!subscriptions) return [];
         return context.userLoader.loadMany(subscriptions.map(({ authorId }) => authorId));
       }
     },
     subscribedToUser: {
-      type: new GraphQLList(subscribedToInterface),
-      resolve: async (parent: { id: string }, _, context) => {
+      type: new GraphQLList(userInterface),
+      resolve: async (parent: { id: string }, _, context: IContext) => {
         const subscriptions = await context.subscribedToUserLoader.load(parent.id);
         if (!subscriptions) return [];
-        return context.userLoader.loadMany(subscriptions.map(({ subscriberId }) => subscriberId));
+        return context.userLoader.loadMany(subscriptions.map(({ subscriberId }: SubscribersOnAuthors) => subscriberId));
       }
     }
   })
