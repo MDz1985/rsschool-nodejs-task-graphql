@@ -84,14 +84,14 @@ export const userInterface = new GraphQLObjectType({
     },
     posts: {
       type: new GraphQLList(postInterface),
-      resolve: async (parent, _, context: IContext) => {
+      resolve: async (parent: { id: string }, _, context: IContext) => {
         return await context.postLoader.load(parent.id);
       }
     },
     userSubscribedTo: {
       type: new GraphQLList(userInterface),
       resolve: async (parent: { id: string }, _, context: IContext) => {
-        const subscriptions = await context.userSubscribedToLoader.load(parent.id);
+        const subscriptions: SubscribersOnAuthors[] | null = await context.userSubscribedToLoader.load(parent.id);
         if (!subscriptions) return [];
         return context.userLoader.loadMany(subscriptions.map(({ authorId }) => authorId));
       }
@@ -99,7 +99,7 @@ export const userInterface = new GraphQLObjectType({
     subscribedToUser: {
       type: new GraphQLList(userInterface),
       resolve: async (parent: { id: string }, _, context: IContext) => {
-        const subscriptions = await context.subscribedToUserLoader.load(parent.id);
+        const subscriptions: SubscribersOnAuthors[] | null = await context.subscribedToUserLoader.load(parent.id);
         if (!subscriptions) return [];
         return context.userLoader.loadMany(subscriptions.map(({ subscriberId }: SubscribersOnAuthors) => subscriberId));
       }

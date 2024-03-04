@@ -5,11 +5,12 @@ import { GraphQLSchema } from 'graphql/index.js';
 import { myQueryType } from './query.js';
 import { myMutationType } from './mutations.js';
 import { createLoaders } from './loaders/loaders.js';
+import { ILoaders } from './models/interfaces.js';
 
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const { prisma } = fastify;
 
-  const ProjectSchema = new GraphQLSchema({
+  const ProjectSchema: GraphQLSchema = new GraphQLSchema({
     query: myQueryType,
     mutation: myMutationType
   });
@@ -27,7 +28,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     async handler(req) {
       const { query, variables } = req.body;
 
-      const loaders = createLoaders(prisma);
+      const loaders: ILoaders = createLoaders(prisma);
 
       const result = await graphql({
         schema: ProjectSchema,
